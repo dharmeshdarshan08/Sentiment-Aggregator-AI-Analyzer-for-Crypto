@@ -1,0 +1,370 @@
+{
+  "name": "Http as tool",
+  "nodes": [
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -120,
+        520
+      ],
+      "id": "cd2c415b-5eec-4652-939b-71b6854eee50",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "7VRuqLHgzaJ3Njdn",
+          "name": "OpenAi account 3"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -300,
+        120
+      ],
+      "id": "93660eb6-a80e-42a8-ba28-5bc7b2a5c688",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a financial sentiment analysis agent for cryptocurrency markets.\n\nYou have access to the following tools:\n1. sentiment_twitter\n2. sentiment_reddit\n3. sentiment_telegram\n4. sentiment_youtube\n5. sentiment_bitcointalk\n6. fetch_data_from_tavily (news and social web scraping)\n7. santiment (aggregated sentiment analytics)\n\nGiven coin is bitcoin \n\nYour task is to:\n- Dynamically choose the most relevant sentiment tools Added in MCP based on the coin type:\n   - For **meme/small-cap coins** (e.g., pepe, bonk, sui), prioritize: `sentiment_twitter`, `sentiment_reddit`, `sentiment_telegram`.\n   - For **major coins** (e.g., ethereum, bitcoin, solana), prioritize: `sentiment_bitcointalk`, `sentiment_twitter`, `sentiment_reddit`.\n\n- Fetch data using the selected tools in MCP.\n- Combine and analyze the data to assess the coin’s **market sentiment**.\n- Output your findings in strictly **JSON format** using the structure below:\n\n{\n  \"confidence\": <float between 0.0 and 1.0>,\n  \"reasoning\": \"<short explanation based on the selected tools and their insights>\",\n  \"used_tools\": [\"<tool_1>\", \"<tool_2>\", ...],\n  \"santiment\": { ... }  // include relevant sentiment fields from santiment tool\n}\n\n⚠️ Do NOT use words like \"high\", \"medium\", or \"low\" for confidence.\n⚠️ Respond ONLY with valid, parseable JSON. No extra text or markdown.\n",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        252,
+        120
+      ],
+      "id": "b80301eb-0360-442b-b909-ef8be91b3841",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"confidence\": \"<float from 0.0 to 1.0>\",\n  \"reasoning\": \"<short explanation>\",\n  \"santiment\": \"\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        860,
+        360
+      ],
+      "id": "9b516c98-0232-4e1f-b85b-7e2daf58c211",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": " application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": ""
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"query\": \"What is the current sentiment of BITCOIN (BTC)?\",\n  \"search_depth\": \"advanced\",\n  \"time_range\": \"day\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        60,
+        360
+      ],
+      "id": "a0b81c96-39c9-4291-bc29-14f631ec5f65",
+      "name": "fetch_data_from_tavily",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.santiment.net/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Apikey",
+              "value": ""
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n          \"query\": \"query { getMetric(metric: \\\"sentiment_weighted_twitter\\\") { timeseriesData(slug: \\\"bitcoin\\\", from: \\\"2024-04-01T00:00:00Z\\\", to: \\\"2024-05-02T00:00:00Z\\\", interval: \\\"1d\\\") { datetime value } } }\"\n        }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        120,
+        520
+      ],
+      "id": "640c4a5b-d3a9-476c-83a3-26b5a1a6468a",
+      "name": "sentiment_twitter"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.santiment.net/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Apikey",
+              "value": ""
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n          \"query\": \"query { getMetric(metric: \\\"sentiment_weighted_reddit\\\") { timeseriesData(slug: \\\"bitcoin\\\", from: \\\"2024-04-01T00:00:00Z\\\", to: \\\"2024-05-02T00:00:00Z\\\", interval: \\\"1d\\\") { datetime value } } }\"\n        }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        280,
+        360
+      ],
+      "id": "be836d5f-76a5-4be3-ba53-805cb0111b7e",
+      "name": "sentiment_reddit"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.santiment.net/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Apikey",
+              "value": ""
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n          \"query\": \"query { getMetric(metric: \\\"sentiment_weighted_telegram\\\") { timeseriesData(slug: \\\"bitcoin\\\", from: \\\"2024-04-01T00:00:00Z\\\", to: \\\"2024-05-02T00:00:00Z\\\", interval: \\\"1d\\\") { datetime value } } }\"\n        }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        520
+      ],
+      "id": "50a89324-cf1c-4fbf-81f2-d3b436e2a305",
+      "name": "sentiment_telegram"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.santiment.net/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Apikey",
+              "value": ""
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n          \"query\": \"query { getMetric(metric: \\\"sentiment_weighted_bitcointalk\\\") { timeseriesData(slug: \\\"bitcoin\\\", from: \\\"2024-04-01T00:00:00Z\\\", to: \\\"2024-05-02T00:00:00Z\\\", interval: \\\"1d\\\") { datetime value } } }\"\n        }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        360
+      ],
+      "id": "33b847ab-a5bd-4af9-9c23-a09bb813dd53",
+      "name": "sentiment_bitcointalk"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.santiment.net/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Apikey",
+              "value": ""
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n          \"query\": \"query { getMetric(metric: \\\"sentiment_weighted_youtube\\\") { timeseriesData(slug: \\\"bitcoin\\\", from: \\\"2024-04-01T00:00:00Z\\\", to: \\\"2024-05-02T00:00:00Z\\\", interval: \\\"1d\\\") { datetime value } } }\"\n        }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        520
+      ],
+      "id": "43c66070-fbfe-4569-bcb0-ca6494db2cf8",
+      "name": "sentiment_youtube"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch_data_from_tavily": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sentiment_twitter": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sentiment_reddit": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sentiment_telegram": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sentiment_bitcointalk": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sentiment_youtube": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "202b9132-8100-4000-9379-9ce18825d0c3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4f2970aa50c547fd9f99834a8dce37ae7195712d3b486b788d366ce2c79d0693"
+  },
+  "id": "OszrzBgAD4N1yian",
+  "tags": []
+}
